@@ -61,5 +61,15 @@ xcuserdata
 
 .build/
 
-# Test files
+## Test files
 *Tests.swift.plist
+
+## Documentación Interna de Autokbisw
+
+## Xcode
+DerivedData/
+
+## macOS
+.DS_Store
+
+

@@ -17,4 +17,8 @@ public struct Logger {
             print(message)
         }
     }
+
+    func error(_ message: String) {
+        FileHandle.standardError.write(Data(("ERROR: " + message + "\n").utf8))
+    }
 }

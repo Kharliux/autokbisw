@@ -226,4 +226,69 @@ class IOKeyEventMonitorTests: XCTestCase {
         XCTAssertTrue(monitor.deviceEnabled[testKeyboard2] ?? false, "Second keyboard should be enabled")
         XCTAssertFalse(monitor.deviceEnabled[testKeyboard] ?? true, "First keyboard should remain disabled")
     }
+    func testCopyInputSourceByNumber() {
+        let sourceKeyboard = "AMagic Keyboard-[76-802-Apple Inc.-SERIAL-BT]"
+        let destinationKeyboard = "BMagic Keyboard-[76-802-Apple Inc.-SERIAL-USB]"
+
+        monitor.storeInputSource(keyboard: sourceKeyboard, conformsToKeyboard: true)
+        monitor.enableDevice(destinationKeyboard)
+
+        XCTAssertTrue(monitor.copyInputSource(fromNumber: 1, toNumber: 2))
+        XCTAssertNotNil(monitor.kb2is[destinationKeyboard])
+        XCTAssertTrue(monitor.deviceEnabled[destinationKeyboard] ?? false)
+    }
+
+    func testCopyInputSourceRejectsInvalidNumbers() {
+        let sourceKeyboard = "AMagic Keyboard-[76-802-Apple Inc.-SERIAL-BT]"
+        monitor.storeInputSource(keyboard: sourceKeyboard, conformsToKeyboard: true)
+
+        XCTAssertFalse(monitor.copyInputSource(fromNumber: 0, toNumber: 1))
+        XCTAssertFalse(monitor.copyInputSource(fromNumber: 1, toNumber: 2))
+        XCTAssertFalse(monitor.copyInputSource(fromNumber: 1, toNumber: 1))
+    }
+
+    func testDoctorReportDetectsDuplicateDeviceNames() {
+        let bluetoothKeyboard = "Magic Keyboard-[76-802-Apple Inc.-BT]"
+        let usbKeyboard = "Magic Keyboard-[76-802-Apple Inc.-USB]"
+        monitor.storeInputSource(keyboard: bluetoothKeyboard, conformsToKeyboard: true)
+        monitor.storeInputSource(keyboard: usbKeyboard, conformsToKeyboard: true)
+
+        let report = monitor.getDoctorReport()
+        XCTAssertTrue(report.contains("autokbisw link"))
+    }
+
+
+    func testLinkDevicesSharesMappingAndPersistsGroup() {
+        let first = "AMagic Keyboard CRM-[76-802-Apple Inc.-BT]"
+        let second = "BMagic Keyboard with Touch ID-[76-1452-Apple Inc.-USB]"
+        monitor.storeInputSource(keyboard: first, conformsToKeyboard: true)
+        monitor.storeInputSource(keyboard: second, conformsToKeyboard: true)
+
+        XCTAssertTrue(monitor.linkDevices(1, 2))
+        XCTAssertNotNil(monitor.linkedDevices[first])
+        XCTAssertEqual(monitor.linkedDevices[first], monitor.linkedDevices[second])
+        XCTAssertNotNil(monitor.kb2is[first])
+        XCTAssertNotNil(monitor.kb2is[second])
+    }
+
+    func testClearRemovesLinkedDevices() {
+        let first = "AMagic Keyboard CRM-[76-802-Apple Inc.-BT]"
+        let second = "BMagic Keyboard with Touch ID-[76-1452-Apple Inc.-USB]"
+        monitor.storeInputSource(keyboard: first, conformsToKeyboard: true)
+        monitor.storeInputSource(keyboard: second, conformsToKeyboard: true)
+        XCTAssertTrue(monitor.linkDevices(1, 2))
+
+        monitor.clearAllSettings()
+        XCTAssertTrue(monitor.linkedDevices.isEmpty)
+    }
+
+    func testDoctorSuggestsLinkForMagicKeyboardIdentities() {
+        let first = "Magic Keyboard CRM-[76-802-Apple Inc.-BT]"
+        let second = "Magic Keyboard with Touch ID-[76-1452-Apple Inc.-USB]"
+        monitor.storeInputSource(keyboard: first, conformsToKeyboard: true)
+        monitor.storeInputSource(keyboard: second, conformsToKeyboard: true)
+
+        XCTAssertTrue(monitor.getDoctorReport().contains("autokbisw link"))
+    }
+
 }

@@ -32,7 +32,7 @@ struct Autokbisw: ParsableCommand {
 
     static var configuration = CommandConfiguration(
         abstract: "Automatic keyboard/input source switching for macOS.",
-        subcommands: [Enable.self, Disable.self, List.self, Clear.self]
+        subcommands: [Enable.self, Disable.self, List.self, Copy.self, Link.self, Unlink.self, Assign.self, Doctor.self, Clear.self]
     )
 
     @Option(
@@ -109,6 +109,99 @@ struct Autokbisw: ParsableCommand {
         func run() throws {
             let monitor = Autokbisw.createMonitor()
             print(monitor?.getDevicesString() ?? "")
+        }
+    }
+
+    struct Copy: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            commandName: "copy",
+            abstract: "Copy the stored input source and enabled state between two numbered devices."
+        )
+
+        @Argument(help: "Source device number from the list command")
+        var source: Int
+
+        @Argument(help: "Destination device number from the list command")
+        var destination: Int
+
+        func run() throws {
+            guard let monitor = Autokbisw.createMonitor() else {
+                throw ValidationError("Unable to initialize the keyboard monitor.")
+            }
+            guard monitor.copyInputSource(fromNumber: source, toNumber: destination) else {
+                throw ValidationError("Could not copy device mapping. Check both numbers with 'autokbisw list' and ensure the source has a stored layout.")
+            }
+            print("Copied mapping from device #\(source) to device #\(destination).")
+        }
+    }
+
+    struct Link: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            commandName: "link",
+            abstract: "Link two numbered identities that belong to the same physical keyboard."
+        )
+
+        @Argument(help: "First device number from the list command")
+        var first: Int
+
+        @Argument(help: "Second device number from the list command")
+        var second: Int
+
+        func run() throws {
+            guard let monitor = Autokbisw.createMonitor(), monitor.linkDevices(first, second) else {
+                throw ValidationError("Could not link devices. Check both numbers with 'autokbisw list'.")
+            }
+            print("Linked device #\(first) and device #\(second). Future layout changes will be shared.")
+        }
+    }
+
+    struct Unlink: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            commandName: "unlink",
+            abstract: "Remove a numbered device identity from its physical-keyboard link."
+        )
+
+        @Argument(help: "Device number from the list command")
+        var device: Int
+
+        func run() throws {
+            guard let monitor = Autokbisw.createMonitor(), monitor.unlinkDevice(device) else {
+                throw ValidationError("Could not unlink device. Check the number with 'autokbisw list'.")
+            }
+            print("Unlinked device #\(device).")
+        }
+    }
+
+    struct Assign: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            commandName: "assign",
+            abstract: "Assign an installed macOS input-source identifier to a numbered device."
+        )
+
+        @Argument(help: "Device number from the list command")
+        var device: Int
+
+        @Argument(help: "Input source identifier, for example com.apple.keylayout.Spanish-ISO")
+        var inputSourceId: String
+
+        func run() throws {
+            guard let monitor = Autokbisw.createMonitor(),
+                  monitor.assignInputSource(deviceNumber: device, inputSourceId: inputSourceId) else {
+                throw ValidationError("Could not assign that input source. Verify the device number and installed input-source identifier.")
+            }
+            print("Assigned \(inputSourceId) to device #\(device).")
+        }
+    }
+
+    struct Doctor: ParsableCommand {
+        static var configuration = CommandConfiguration(
+            commandName: "doctor",
+            abstract: "Inspect stored keyboard mappings and flag likely configuration issues."
+        )
+
+        func run() throws {
+            let monitor = Autokbisw.createMonitor()
+            print(monitor?.getDoctorReport() ?? "Unable to initialize the keyboard monitor.")
         }
     }
 
