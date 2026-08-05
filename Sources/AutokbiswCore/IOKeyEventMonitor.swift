@@ -110,9 +110,21 @@ public final class IOKeyEventMonitor {
             let uniqueId = selfPtr.deviceProperty(senderDevice, kIOHIDUniqueIDKey)
             let transport = selfPtr.deviceProperty(senderDevice, kIOHIDTransportKey)
 
-            let keyboard = selfPtr.useLocation
-                ? "\(product)-[\(vendorId)-\(productId)-\(manufacturer)-\(serialNumber)-\(locationId)]"
-                : "\(product)-[\(vendorId)-\(productId)-\(manufacturer)-\(serialNumber)]"
+            let isBuiltInKeyboard =
+                product.lowercased().contains("internal keyboard") &&
+                vendorId == "unknown" &&
+                productId == "unknown"
+
+            let keyboard: String
+
+
+            if isBuiltInKeyboard {
+                keyboard = "\(product)-[Apple-builtin]"
+            } else if selfPtr.useLocation {
+                keyboard = "\(product)-[\(vendorId)-\(productId)-\(manufacturer)-\(serialNumber)-\(locationId)]"
+            } else {
+                keyboard = "\(product)-[\(vendorId)-\(productId)-\(manufacturer)-\(serialNumber)]"
+            }
 
             selfPtr.log.trace("HID event: device=\(keyboard), transport=\(transport), vendor=\(vendorId), product=\(productId), location=\(locationId), unique=\(uniqueId), keyboard=\(conformsToKeyboard)")
             selfPtr.onKeyboardEvent(keyboard: keyboard, conformsToKeyboard: conformsToKeyboard)
