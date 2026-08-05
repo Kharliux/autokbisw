@@ -16,6 +16,7 @@
 import ArgumentParser
 import AutokbiswCore
 import Foundation
+import Darwin
 
 struct Autokbisw: ParsableCommand {
     private static let defaultUsagePage: Int = 0x01
@@ -54,6 +55,11 @@ struct Autokbisw: ParsableCommand {
     var location = false
 
     mutating func run() throws {
+    if CommandLine.arguments.count == 1 && isatty(STDIN_FILENO) != 0 {
+        print(Self.helpMessage())
+        return
+    }
+
         if verbose > 0 {
             print("Starting with useLocation: \(location) - verbosity: \(verbose)")
         }
