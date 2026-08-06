@@ -291,4 +291,128 @@ class IOKeyEventMonitorTests: XCTestCase {
         XCTAssertTrue(monitor.getDoctorReport().contains("autokbisw link"))
     }
 
+    func testMigratesLegacyBuiltInKeyboardIdentity() {
+        let product = "Apple Internal Keyboard / Trackpad"
+        let legacyKeyboard =
+            "\(product)-[unknown-unknown-Apple-unknown]"
+        let newKeyboard =
+            "\(product)-[Apple-builtin]"
+
+        monitor.storeInputSource(
+            keyboard: legacyKeyboard,
+            conformsToKeyboard: true
+        )
+        monitor.disableDevice(legacyKeyboard)
+        monitor.linkedDevices[legacyKeyboard] = "built-in-group"
+
+        let originalInputSource = monitor.kb2is[legacyKeyboard]
+
+        monitor.migrateLegacyBuiltInKeyboardIdentity(
+            product: product,
+            to: newKeyboard
+        )
+
+        XCTAssertNil(monitor.kb2is[legacyKeyboard])
+        XCTAssertNil(monitor.deviceEnabled[legacyKeyboard])
+        XCTAssertNil(monitor.linkedDevices[legacyKeyboard])
+
+        XCTAssertNotNil(monitor.kb2is[newKeyboard])
+        XCTAssertEqual(
+            monitor.kb2is[newKeyboard].map(ObjectIdentifier.init),
+            originalInputSource.map(ObjectIdentifier.init)
+        )
+        XCTAssertEqual(monitor.deviceEnabled[newKeyboard], false)
+        XCTAssertEqual(
+            monitor.linkedDevices[newKeyboard],
+            "built-in-group"
+        )
+    }
+
+    func testMigratesLegacyBuiltInKeyboardIdentityWithLocation() {
+        let product = "Apple Internal Keyboard / Trackpad"
+        let legacyKeyboard =
+            "\(product)-[unknown-unknown-Apple Inc.-ABC123-167]"
+        let newKeyboard =
+            "\(product)-[Apple-builtin]"
+
+        monitor.storeInputSource(
+            keyboard: legacyKeyboard,
+            conformsToKeyboard: true
+        )
+        monitor.disableDevice(legacyKeyboard)
+        monitor.linkedDevices[legacyKeyboard] = "built-in-location-group"
+
+        let originalInputSource = monitor.kb2is[legacyKeyboard]
+
+        monitor.migrateLegacyBuiltInKeyboardIdentity(
+            product: product,
+            to: newKeyboard
+        )
+
+        XCTAssertNil(monitor.kb2is[legacyKeyboard])
+        XCTAssertNil(monitor.deviceEnabled[legacyKeyboard])
+        XCTAssertNil(monitor.linkedDevices[legacyKeyboard])
+
+        XCTAssertNotNil(monitor.kb2is[newKeyboard])
+        XCTAssertEqual(
+            monitor.kb2is[newKeyboard].map(ObjectIdentifier.init),
+            originalInputSource.map(ObjectIdentifier.init)
+        )
+        XCTAssertEqual(monitor.deviceEnabled[newKeyboard], false)
+        XCTAssertEqual(
+            monitor.linkedDevices[newKeyboard],
+            "built-in-location-group"
+        )
+    }
+
+func testPreservesConflictingLegacyAndStableBuiltInKeyboardSettings() {
+    let product = "Apple Internal Keyboard / Trackpad"
+    let legacyKeyboard =
+        "\(product)-[unknown-unknown-Apple Inc.-ABC123]"
+    let newKeyboard =
+        "\(product)-[Apple-builtin]"
+
+    monitor.storeInputSource(
+        keyboard: legacyKeyboard,
+        conformsToKeyboard: true
+    )
+    monitor.disableDevice(legacyKeyboard)
+    monitor.linkedDevices[legacyKeyboard] = "legacy-group"
+
+    monitor.storeInputSource(
+        keyboard: newKeyboard,
+        conformsToKeyboard: true
+    )
+    monitor.enableDevice(newKeyboard)
+    monitor.linkedDevices[newKeyboard] = "stable-group"
+
+    let legacyInputSource = monitor.kb2is[legacyKeyboard]
+    let stableInputSource = monitor.kb2is[newKeyboard]
+
+    monitor.migrateLegacyBuiltInKeyboardIdentity(
+        product: product,
+        to: newKeyboard
+    )
+
+    XCTAssertEqual(
+        monitor.kb2is[legacyKeyboard].map(ObjectIdentifier.init),
+        legacyInputSource.map(ObjectIdentifier.init)
+    )
+    XCTAssertEqual(monitor.deviceEnabled[legacyKeyboard], false)
+    XCTAssertEqual(
+        monitor.linkedDevices[legacyKeyboard],
+        "legacy-group"
+    )
+
+    XCTAssertEqual(
+        monitor.kb2is[newKeyboard].map(ObjectIdentifier.init),
+        stableInputSource.map(ObjectIdentifier.init)
+    )
+    XCTAssertEqual(monitor.deviceEnabled[newKeyboard], true)
+    XCTAssertEqual(
+        monitor.linkedDevices[newKeyboard],
+        "stable-group"
+    )
+}
+
 }

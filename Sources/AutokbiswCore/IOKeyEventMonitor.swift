@@ -117,9 +117,12 @@ public final class IOKeyEventMonitor {
 
             let keyboard: String
 
-
             if isBuiltInKeyboard {
                 keyboard = "\(product)-[Apple-builtin]"
+                selfPtr.migrateLegacyBuiltInKeyboardIdentity(
+                    product: product,
+                    to: keyboard
+                )
             } else if selfPtr.useLocation {
                 keyboard = "\(product)-[\(vendorId)-\(productId)-\(manufacturer)-\(serialNumber)-\(locationId)]"
             } else {
@@ -139,6 +142,96 @@ public final class IOKeyEventMonitor {
         }
         return String(describing: value)
     }
+
+func migrateLegacyBuiltInKeyboardIdentity(
+    product: String,
+    to newKeyboard: String
+) {
+    let legacyPrefix = "\(product)-[unknown-unknown-"
+
+    stateLock.lock()
+
+    let knownKeyboards = Set(kb2is.keys)
+        .union(deviceEnabled.keys)
+        .union(linkedDevices.keys)
+
+    let legacyKeyboards = knownKeyboards
+        .filter {
+            $0.hasPrefix(legacyPrefix) &&
+                $0.hasSuffix("]")
+        }
+        .sorted()
+
+    var migrated = false
+    var foundConflict = false
+
+    for legacyKeyboard in legacyKeyboards {
+        let legacyInputSourceId =
+            kb2is[legacyKeyboard].flatMap(is2Id)
+        let newInputSourceId =
+            kb2is[newKeyboard].flatMap(is2Id)
+
+        let inputSourceConflicts =
+            legacyInputSourceId != nil &&
+            newInputSourceId != nil &&
+            legacyInputSourceId != newInputSourceId
+
+        let enabledConflicts =
+            deviceEnabled[legacyKeyboard] != nil &&
+            deviceEnabled[newKeyboard] != nil &&
+            deviceEnabled[legacyKeyboard] != deviceEnabled[newKeyboard]
+
+        let linkConflicts =
+            linkedDevices[legacyKeyboard] != nil &&
+            linkedDevices[newKeyboard] != nil &&
+            linkedDevices[legacyKeyboard] != linkedDevices[newKeyboard]
+
+        if inputSourceConflicts || enabledConflicts || linkConflicts {
+            foundConflict = true
+            continue
+        }
+
+        if kb2is[newKeyboard] == nil,
+           let inputSource = kb2is[legacyKeyboard] {
+            kb2is[newKeyboard] = inputSource
+        }
+
+        if deviceEnabled[newKeyboard] == nil,
+           let enabled = deviceEnabled[legacyKeyboard] {
+            deviceEnabled[newKeyboard] = enabled
+        }
+
+        if linkedDevices[newKeyboard] == nil,
+           let group = linkedDevices[legacyKeyboard] {
+            linkedDevices[newKeyboard] = group
+        }
+
+        kb2is.removeValue(forKey: legacyKeyboard)
+        deviceEnabled.removeValue(forKey: legacyKeyboard)
+        linkedDevices.removeValue(forKey: legacyKeyboard)
+        migrated = true
+    }
+
+    stateLock.unlock()
+
+    if migrated {
+        log.debug(
+            "Migrated legacy built-in keyboard identity to \(newKeyboard)"
+        )
+        saveMappings()
+    }
+
+    if foundConflict {
+        log.debug(
+            "Preserved conflicting legacy and stable built-in keyboard settings"
+        )
+    }
+}
+
+
+
+
+
 
     private func deviceConformsToKeyboard(_ device: IOHIDDevice) -> Bool {
         return IOHIDDeviceConformsTo(device, UInt32(kHIDPage_GenericDesktop), UInt32(kHIDUsage_GD_Keyboard))
