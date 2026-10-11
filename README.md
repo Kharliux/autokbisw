@@ -49,7 +49,27 @@ brew services start Kharliux/tap/autokbisw
 
 Homebrew compiles the application from source. If the Command Line Tools are missing, macOS may prompt you to install them. You can also request them manually with `xcode-select --install`.
 
-**Input Monitoring permission:** macOS may ask you to allow autokbisw to monitor keyboard input. In **System Settings → Privacy & Security → Input Monitoring**, grant permission to the installed executable when prompted. This permission is needed to identify the physical keyboard in use. Restart the service if necessary after enabling it.
+### Grant Input Monitoring permission
+
+`autokbisw` needs **Input Monitoring** permission to identify which physical keyboard produced an event. Without permission, installation may succeed even though automatic switching does not work.
+
+Open **System Settings → Privacy & Security → Input Monitoring**. If `autokbisw` appears, enable it.
+
+If it is missing, use Terminal to find the installed executable (works on Intel and Apple silicon):
+
+```sh
+echo "$(brew --prefix Kharliux/tap/autokbisw)/bin/autokbisw"
+```
+
+Copy the resulting path. In **Input Monitoring**, click **+** to add an item. In the file picker, press **Command-Shift-G**, paste the full path, and select the executable.
+
+If an old `autokbisw` entry remains after upgrading and switching no longer works, remove the stale entry and add the current executable using the same steps.
+
+After granting or refreshing access, restart the background service:
+
+```sh
+brew services restart Kharliux/tap/autokbisw
+```
 
 ## Getting started
 
